@@ -1,20 +1,36 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 import os
+from dotenv import load_dotenv
+
+# Carrega as variáveis do arquivo .env para o ambiente local
+load_dotenv()
 
 # Estratégia de Arquitetura:
-# Em ambientes serverless (Vercel), o sistema de arquivos principal é read-only.
-# Por isso, caso a variável VERCEL esteja definida, o SQLite é salvo em /tmp/.
-# É importante notar que em serverless o /tmp é efêmero (dados são perdidos entre execuções).
-# Para uso real contínuo e permanente, sugere-se trocar para um Postgres (ex: Supabase, Neon) no Vercel.
-DB_PATH = "/tmp/estruturalmente.db" if os.environ.get("VERCEL") else "estruturalmente.db"
-DATABASE_URL = f"sqlite+aiosqlite:///{DB_PATH}"
+# Lemos a variável URL_DATABASE (do seu .env) ou DATABASE_URL.
+raw_url = os.environ.get("URL_DATABASE") or os.environ.get("DATABASE_URL")
+
+if not raw_url:
+    raise ValueError("A variável de ambiente URL_DATABASE não foi encontrada. Verifique seu arquivo .env")
+
+# O SQLAlchemy assíncrono precisa do driver '+aiomysql' na URL. 
+# Como a Aiven (e outros DBaaS) fornecem a URL com 'mysql://', fazemos a adaptação automaticamente:
+if raw_url.startswith("mysql://"):
+    DATABASE_URL = raw_url.replace("mysql://", "mysql+aiomysql://", 1)
+else:
+    DATABASE_URL = raw_url
+
+# Limpeza de parâmetros da URL que podem causar conflito com o aiomysql
+if "?ssl-mode=REQUIRED" in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("?ssl-mode=REQUIRED", "")
 
 # Criação da engine assíncrona garantindo alta performance no I/O do banco de dados
 engine = create_async_engine(
     DATABASE_URL, 
     echo=False,
-    connect_args={"check_same_thread": False} # Necessário para SQLite em ambiente assíncrono/multithread
+    pool_pre_ping=True, # Recomendado para MySQL na nuvem para verificar conexões ativas
+    pool_recycle=1800,  # Provedores em nuvem fecham conexões ociosas rápido. 1800s previne timeout.
+    connect_args={"ssl": True} # Aiven requer SSL ativo para conexões seguras
 )
 
 # Fabrica de sessões assíncronas para as transações no banco
