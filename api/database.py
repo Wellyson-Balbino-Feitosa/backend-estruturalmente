@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 import os
+import ssl
 from dotenv import load_dotenv
 
 # Carrega as variáveis do arquivo .env para o ambiente local
@@ -24,13 +25,19 @@ else:
 if "?ssl-mode=REQUIRED" in DATABASE_URL:
     DATABASE_URL = DATABASE_URL.replace("?ssl-mode=REQUIRED", "")
 
+# Configuração do contexto SSL para aceitar o certificado da Aiven
+# Sem isso, a Vercel/Local daria erro de 'self-signed certificate'
+ssl_context = ssl.create_default_context()
+ssl_context.check_hostname = False
+ssl_context.verify_mode = ssl.CERT_NONE
+
 # Criação da engine assíncrona garantindo alta performance no I/O do banco de dados
 engine = create_async_engine(
     DATABASE_URL, 
     echo=False,
     pool_pre_ping=True, # Recomendado para MySQL na nuvem para verificar conexões ativas
     pool_recycle=1800,  # Provedores em nuvem fecham conexões ociosas rápido. 1800s previne timeout.
-    connect_args={"ssl": True} # Aiven requer SSL ativo para conexões seguras
+    connect_args={"ssl": ssl_context} # Usa o contexto configurado acima
 )
 
 # Fabrica de sessões assíncronas para as transações no banco
