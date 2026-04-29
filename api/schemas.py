@@ -1,22 +1,33 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import List
 
-class ResponseCreate(BaseModel):
-    """
-    Schema de validação Pydantic para os dados recebidos na requisição (Input).
-    Garante validação rigorosa dos tipos e estrutura antes de chegar ao banco.
-    """
-    sensations: str = Field(..., description="Relato das sensações percebidas pelo usuário")
-    feelings: str = Field(..., description="Relato dos sentimentos vivenciados")
-    mental_images: str = Field(..., description="Descrição das imagens mentais evocadas")
+class StimulusResponseOneCreate(BaseModel):
+    """Schema de entrada para o Estímulo 1 (Introspecção Clássica)."""
+    sensations: str = Field(..., description="Relato das sensações percebidas")
+    feelings: str = Field(..., description="Relato dos sentimentos")
+    mental_images: str = Field(..., description="Descrição das imagens mentais")
 
-class ResponseOut(ResponseCreate):
-    """
-    Schema de validação Pydantic para a resposta retornada pela API (Output).
-    Extende o ResponseCreate adicionando campos gerados pelo banco de dados.
-    """
+class StimulusResponseOneOut(StimulusResponseOneCreate):
+    """Schema de saída para o Estímulo 1."""
     id: int
     timestamp: datetime
-
     class Config:
-        from_attributes = True # Permite leitura a partir de instâncias do ORM (SQLAlchemy)
+        from_attributes = True
+
+class StimulusResponseTwoCreate(BaseModel):
+    """Schema de entrada para o Estímulo 2 (Atributos Sensoriais)."""
+    intensidade: str = Field(..., description="Intensidade da resposta")
+    duracao: str = Field(..., description="Duração da resposta")
+    textura: str = Field(..., description="Textura percebida")
+    clareza: str = Field(..., description="Clareza percebida")
+    tom_afetivo: str = Field(..., description="Tom afetivo")
+    descricao_livre: str = Field(..., description="Descrição livre")
+
+class StimulusResponseTwoOut(StimulusResponseTwoCreate):
+    """Schema de saída para o Estímulo 2."""
+    id: int
+    timestamp: datetime
+    class Config:
+        from_attributes = True
+

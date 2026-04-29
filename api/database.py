@@ -2,7 +2,13 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy.orm import declarative_base
 import os
 import ssl
+import sys
+import asyncio
 from dotenv import load_dotenv
+
+# No Windows, o aiomysql exige o SelectorEventLoop para funcionar corretamente
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 # Carrega as variáveis do arquivo .env para o ambiente local
 load_dotenv()
@@ -14,6 +20,8 @@ raw_url = os.environ.get("URL_DATABASE") or os.environ.get("DATABASE_URL")
 if not raw_url:
     raise ValueError("A variável de ambiente URL_DATABASE não foi encontrada. Verifique seu arquivo .env")
 
+raw_url = raw_url.strip()
+
 # O SQLAlchemy assíncrono precisa do driver '+aiomysql' na URL. 
 # Como a Aiven (e outros DBaaS) fornecem a URL com 'mysql://', fazemos a adaptação automaticamente:
 if raw_url.startswith("mysql://"):
@@ -23,7 +31,7 @@ else:
 
 # Limpeza de parâmetros da URL que podem causar conflito com o aiomysql
 if "?ssl-mode=REQUIRED" in DATABASE_URL:
-    DATABASE_URL = DATABASE_URL.replace("?ssl-mode=REQUIRED", "")
+    DATABASE_URL = DATABASE_URL.replace("?ssl-mode=REQUIRED", "?ssl=true")
 
 # Configuração do contexto SSL para aceitar o certificado da Aiven
 # Sem isso, a Vercel/Local daria erro de 'self-signed certificate'

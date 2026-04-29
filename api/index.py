@@ -9,19 +9,16 @@ from . import models, schemas, crud
 from .database import engine, get_db
 
 # Gerenciamento de ciclo de vida assíncrono
-# Cria as tabelas do banco de dados no momento em que a aplicação inicia
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(models.Base.metadata.create_all)
-    yield
+# NOTA: Em ambientes Serverless (como Vercel), evite usar eventos de startup 
+# (como criar tabelas com create_all) dentro da API, pois isso ocorre a cada "cold start",
+# gerando múltiplas conexões simultâneas que esgotam o pool de threads e causam 
+# o erro OSError: [Errno 16] Device or resource busy na resolução de DNS.
 
 # Inicialização da aplicação FastAPI
 app = FastAPI(
     title="API EstruturalMente",
     description="Backend para o Simulador de Introspecção (Estruturalismo) construído de forma assíncrona e performática.",
-    version="1.0.0",
-    lifespan=lifespan
+    version="1.0.0"
 )
 
 # Configuração de CORS - Habilita requisições do frontend
@@ -36,38 +33,44 @@ app.add_middleware(
 
 @app.get("/", tags=["Health Check"])
 async def root():
-    """
-    Endpoint simples para verificar se a API está online.
-    """
     return {"status": "ok", "message": "API EstruturalMente operando normalmente."}
 
-@app.post("/api/responses", response_model=schemas.ResponseOut, status_code=status.HTTP_201_CREATED, tags=["Responses"])
-async def create_response(response: schemas.ResponseCreate, db: AsyncSession = Depends(get_db)):
-    """
-    Recebe os dados do formulário do frontend e armazena no banco de dados.
-    Validação de dados automática através do schema ResponseCreate.
-    """
-    try:
-        return await crud.create_response(db=db, response=response)
-    except Exception as e:
-        # Registra a falha, para debug na Vercel (disponível nos logs do servidor)
-        print(f"Erro ao salvar: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro interno ao processar a resposta. Tente novamente mais tarde."
-        )
+# ==========================================
+# ROTAS PARA O ESTÍMULO 1
+# ==========================================
 
-@app.get("/api/responses", response_model=List[schemas.ResponseOut], tags=["Responses"])
-async def read_responses(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
-    """
-    Recupera o histórico das experiências de introspecção salvas no banco.
-    Possui paginação via skip e limit.
-    """
+@app.post("/api/stimulus-1/responses", response_model=schemas.StimulusResponseOneOut, status_code=status.HTTP_201_CREATED, tags=["Estímulo 1"])
+async def create_stimulus1(response: schemas.StimulusResponseOneCreate, db: AsyncSession = Depends(get_db)):
     try:
-        return await crud.get_responses(db, skip=skip, limit=limit)
+        return await crud.create_stimulus1_response(db=db, response=response)
     except Exception as e:
-        print(f"Erro ao buscar: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro interno ao buscar as respostas do servidor."
-        )
+        print(f"Erro ao salvar estímulo 1: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno ao processar a resposta do Estímulo 1.")
+
+@app.get("/api/stimulus-1/responses", response_model=List[schemas.StimulusResponseOneOut], tags=["Estímulo 1"])
+async def read_stimulus1(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
+    try:
+        return await crud.get_stimulus1_responses(db, skip=skip, limit=limit)
+    except Exception as e:
+        print(f"Erro ao buscar estímulo 1: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno ao buscar as respostas do Estímulo 1.")
+
+# ==========================================
+# ROTAS PARA O ESTÍMULO 2
+# ==========================================
+
+@app.post("/api/stimulus-2/responses", response_model=schemas.StimulusResponseTwoOut, status_code=status.HTTP_201_CREATED, tags=["Estímulo 2"])
+async def create_stimulus2(response: schemas.StimulusResponseTwoCreate, db: AsyncSession = Depends(get_db)):
+    try:
+        return await crud.create_stimulus2_response(db=db, response=response)
+    except Exception as e:
+        print(f"Erro ao salvar estímulo 2: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno ao processar a resposta do Estímulo 2.")
+
+@app.get("/api/stimulus-2/responses", response_model=List[schemas.StimulusResponseTwoOut], tags=["Estímulo 2"])
+async def read_stimulus2(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
+    try:
+        return await crud.get_stimulus2_responses(db, skip=skip, limit=limit)
+    except Exception as e:
+        print(f"Erro ao buscar estímulo 2: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno ao buscar as respostas do Estímulo 2.")
